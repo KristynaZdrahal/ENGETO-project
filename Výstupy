@@ -93,34 +93,33 @@ ORDER BY
 
 --1.	Rostou v průběhu let mzdy ve všech odvětvích, nebo v některých klesají?
 
-  WITH yearly_avg AS (
+ WITH yearly_wage_avg AS (
     SELECT 
-        year AS payroll_year, 
-        category_code AS industry_branch_code, 
-        avg_price AS avg_value
+        payroll_year, 
+        AVG(salary) AS avg_salary
     FROM 
-        t_kristyna_zdrahalova_project_SQL_final_primary
+        t_kristyna_zdrahalova_project_sql_primary_final
+    WHERE 
+        payroll_year BETWEEN 2006 AND 2018
+    GROUP BY 
+        payroll_year
 )
 SELECT 
     current_year.payroll_year AS year,
-    current_year.industry_branch_code,
-    current_year.avg_value AS current_avg,
-    previous_year.avg_value AS previous_avg,
-    CASE 
-        WHEN current_year.avg_value > previous_year.avg_value THEN 'roste'
-        WHEN current_year.avg_value < previous_year.avg_value THEN 'klesa'
-        ELSE 'zadna_zmena'
-    END AS trend
+    current_year.avg_salary AS current_avg_salary,
+    previous_year.avg_salary AS previous_avg_salary,
+    ROUND(((current_year.avg_salary - previous_year.avg_salary) / previous_year.avg_salary) * 100, 2) AS percent_change
 FROM 
-    yearly_avg current_year
+    yearly_wage_avg current_year
 LEFT JOIN 
-    yearly_avg previous_year
+    yearly_wage_avg previous_year
 ON 
-    current_year.industry_branch_code = previous_year.industry_branch_code
-    AND current_year.payroll_year = previous_year.payroll_year + 1
+    current_year.payroll_year = previous_year.payroll_year + 1
+WHERE 
+    previous_year.avg_salary IS NOT NULL
 ORDER BY 
-    current_year.industry_branch_code, 
     current_year.payroll_year;
+
 
 
 --2. Kolik je možné si koupit litrů mléka a kilogramů chleba za první a poslední srovnatelné období v dostupných datech cen a mezd?
@@ -271,73 +270,100 @@ ORDER BY
 
 
 --5. Má výška HDP vliv na změny ve mzdách a cenách potravin? Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to na cenách potravin či mzdách ve stejném nebo následujícím roce výraznějším růstem?
-WITH yearly_avg AS (
+WITH yearly_wage_avg AS (
     SELECT 
-        year AS payroll_year, 
-        category_code AS industry_branch_code, 
-        ROUND(AVG(avg_wage), 0) AS avg_value
+        payroll_year, 
+        AVG(salary) AS avg_salary
     FROM 
-        t_kristyna_zdrahalova_project_SQL_final_primary
+        t_kristyna_zdrahalova_project_sql_primary_final
     WHERE 
-        year BETWEEN 2006 AND 2018
-        AND category_code IS NOT NULL
+        payroll_year BETWEEN 2006 AND 2018
     GROUP BY 
-        year, 
-        category_code
+        payroll_year
 ),
-price_changes AS (
+wage_growth AS (
     SELECT 
         current_year.payroll_year AS year,
-        current_year.industry_branch_code,
-        current_year.avg_value AS current_avg,
-        previous_year.avg_value AS previous_avg,
-        ROUND(((current_year.avg_value - previous_year.avg_value) / previous_year.avg_value) * 100, 2) AS percent_change,
-        CASE 
-            WHEN current_year.avg_value > previous_year.avg_value THEN 'roste'
-            WHEN current_year.avg_value < previous_year.avg_value THEN 'klesa'
-            ELSE 'zadna_zmena'
-        END AS trend
+        current_year.avg_salary AS current_avg_salary,
+        previous_year.avg_salary AS previous_avg_salary,
+        ROUND(((current_year.avg_salary - previous_year.avg_salary) / previous_year.avg_salary) * 100, 2) AS percent_change
     FROM 
-        yearly_avg current_year
+        yearly_wage_avg current_year
     LEFT JOIN 
-        yearly_avg previous_year
+        yearly_wage_avg previous_year
     ON 
-        current_year.industry_branch_code = previous_year.industry_branch_code
-        AND current_year.payroll_year = previous_year.payroll_year + 1
+        current_year.payroll_year = previous_year.payroll_year + 1
     WHERE 
-        current_year.payroll_year BETWEEN 2006 AND 2018
-),
-gdp_changes AS (
-    SELECT 
-        year,
-        ROUND(GDP, 2) AS GDP,
-        ROUND(LAG(GDP) OVER (ORDER BY year), 2) AS Previous_GDP,
-        ROUND(((GDP - LAG(GDP) OVER (ORDER BY year)) / LAG(GDP) OVER (ORDER BY year)) * 100, 2) AS GDP_Change_Percentage
-    FROM 
-        economies 
-    WHERE 
-        country = 'czech republic' 
-        AND year BETWEEN 2006 AND 2018
+        previous_year.avg_salary IS NOT NULL
 )
 SELECT 
-    p.year,
-    p.industry_branch_code,
-    p.current_avg,
-    p.previous_avg,
-    p.percent_change AS price_percent_change,
-    p.trend,
-    g.GDP,
-    g.Previous_GDP,
-    g.GDP_Change_Percentage AS gdp_percent_change
+    w.year,
+    w.current_avg_salary,
+    w.previous_avg_salary,
+    w.percent_change,
+    s.country,
+    s.GDP,
+    s.taxes,
+    s.GDP_Percentage_Change,
+    s.Taxes_Percentage_Change,
+    s.Taxes_Percentage_Change_Next_Year
 FROM 
-    price_changes p
+    wage_growth w
 JOIN 
-    gdp_changes g
+    t_kristyna_zdrahalova_project_sql_secondary_final s
 ON 
-    p.year = g.year
+    w.year = s.year
+WHERE 
+    s.country = 'Czech Republic'
 ORDER BY 
-    p.industry_branch_code, 
-    p.year;
+    w.year;
+WITH yearly_wage_avg AS (
+    SELECT 
+        payroll_year, 
+        AVG(salary) AS avg_salary
+    FROM 
+        t_kristyna_zdrahalova_project_sql_primary_final
+    WHERE 
+        payroll_year BETWEEN 2006 AND 2018
+    GROUP BY 
+        payroll_year
+),
+wage_growth AS (
+    SELECT 
+        current_year.payroll_year AS year,
+        current_year.avg_salary AS current_avg_salary,
+        previous_year.avg_salary AS previous_avg_salary,
+        ROUND(((current_year.avg_salary - previous_year.avg_salary) / previous_year.avg_salary) * 100, 2) AS percent_change
+    FROM 
+        yearly_wage_avg current_year
+    LEFT JOIN 
+        yearly_wage_avg previous_year
+    ON 
+        current_year.payroll_year = previous_year.payroll_year + 1
+    WHERE 
+        previous_year.avg_salary IS NOT NULL
+)
+SELECT 
+    w.year,
+    w.current_avg_salary,
+    w.previous_avg_salary,
+    w.percent_change,
+    s.country,
+    s.GDP,
+    s.taxes,
+    s.GDP_Percentage_Change,
+    s.Taxes_Percentage_Change,
+    s.Taxes_Percentage_Change_Next_Year
+FROM 
+    wage_growth w
+JOIN 
+    t_kristyna_zdrahalova_project_sql_secondary_final s
+ON 
+    w.year = s.year
+WHERE 
+    s.country = 'Czech Republic'
+ORDER BY 
+    w.year;
 
 
 Odpovědi na otázky:
@@ -357,7 +383,6 @@ Odpovědi na otázky:
 
 --4. Existuje rok, ve kterém byl meziroční nárůst cen potravin výrazně vyšší než růst mezd (větší než 10 %)?
 --Z dat dat vyplývá, že tuto podmínku nesplňoval žádný rok.
-
 
 --5. Má výška HDP vliv na změny ve mzdách a cenách potravin? Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to na cenách potravin či mzdách ve stejném nebo následujícím roce výraznějším růstem?
 --Hypotéza říká, že by měla bát korelace mezi růstem/poklesem HDP a cenami potravin/výší mezd. 
