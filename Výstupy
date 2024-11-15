@@ -92,16 +92,14 @@ ORDER BY
 
 
 --1.	Rostou v průběhu let mzdy ve všech odvětvích, nebo v některých klesají?
-WITH yearly_avg AS (
+
+  WITH yearly_avg AS (
     SELECT 
-        payroll_year, 
-        industry_branch_code, 
-        ROUND(AVG(value), 0) AS avg_value
+        year AS payroll_year, 
+        category_code AS industry_branch_code, 
+        avg_price AS avg_value
     FROM 
-        czechia_payroll
-    GROUP BY 
-        payroll_year, 
-        industry_branch_code
+        t_kristyna_zdrahalova_project_SQL_final_primary
 )
 SELECT 
     current_year.payroll_year AS year,
@@ -126,31 +124,31 @@ ORDER BY
 
 
 --2. Kolik je možné si koupit litrů mléka a kilogramů chleba za první a poslední srovnatelné období v dostupných datech cen a mezd?
-   WITH payroll_avg AS (
+ WITH payroll_avg AS (
     SELECT 
-        payroll_year, 
-        industry_branch_code, 
-        ROUND(AVG(value), 0) AS avg_value
+        year AS payroll_year, 
+        category_code AS industry_branch_code, 
+        ROUND(AVG(avg_wage), 0) AS avg_value
     FROM 
-        czechia_payroll
+        t_kristyna_zdrahalova_project_SQL_final_primary
     WHERE 
-        payroll_year IN (2006, 2018)
+        year IN (2006, 2018)
     GROUP BY 
-        payroll_year, 
-        industry_branch_code
+        year, 
+        category_code
 ),
 price_avg AS (
     SELECT 
-        YEAR(date_from) AS year, 
+        year, 
         category_code, 
-        ROUND(AVG(value), 0) AS avg_price
+        ROUND(AVG(avg_price), 0) AS avg_price
     FROM 
-        czechia_price
+        t_kristyna_zdrahalova_project_SQL_final_primary
     WHERE 
         category_code IN (111301, 114201)
-        AND YEAR(date_from) IN (2006, 2018)
+        AND year IN (2006, 2018)
     GROUP BY 
-        YEAR(date_from), 
+        year, 
         category_code
 ),
 ratio_calc AS (
@@ -184,16 +182,17 @@ ORDER BY
     category_code, 
     year;
 
+
 --3. Která kategorie potravin zdražuje nejpomaleji (je u ní nejnižší percentuální meziroční nárůst)?
 WITH yearly_avg AS (
     SELECT 
-        YEAR(date_from) AS year, 
+        year, 
         category_code, 
-        AVG(value) AS avg_price
+        AVG(avg_price) AS avg_price
     FROM 
-        czechia_price
+        t_kristyna_zdrahalova_project_SQL_final_primary
     GROUP BY 
-        YEAR(date_from), 
+        year, 
         category_code
 ),
 percent_change AS (
@@ -222,28 +221,29 @@ ORDER BY
     avg_percent_change ASC
 LIMIT 1;
 
+
 --4. Existuje rok, ve kterém byl meziroční nárůst cen potravin výrazně vyšší než růst mezd (větší než 10 %)?
 WITH yearly_price_avg AS (
     SELECT 
-        YEAR(date_from) AS year, 
-        AVG(value) AS avg_price
+        year, 
+        AVG(avg_price) AS avg_price
     FROM 
-       czechia_price
+        t_kristyna_zdrahalova_project_SQL_final_primary
     WHERE 
-        YEAR(date_from) BETWEEN 2006 AND 2018
+        year BETWEEN 2006 AND 2018
     GROUP BY 
-        YEAR(date_from)
+        year
 ),
 yearly_wage_avg AS (
     SELECT 
-        payroll_year AS year, 
-        AVG(value) AS avg_wage
+        year, 
+        AVG(avg_wage) AS avg_wage
     FROM 
-        czechia_payroll
+        t_kristyna_zdrahalova_project_SQL_final_primary
     WHERE 
-        payroll_year BETWEEN 2006 AND 2018
+        year BETWEEN 2006 AND 2018
     GROUP BY 
-        payroll_year
+        year
 ),
 price_wage_growth AS (
     SELECT 
@@ -274,17 +274,17 @@ ORDER BY
 --5. Má výška HDP vliv na změny ve mzdách a cenách potravin? Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to na cenách potravin či mzdách ve stejném nebo následujícím roce výraznějším růstem?
 WITH yearly_avg AS (
     SELECT 
-        payroll_year, 
-        industry_branch_code, 
-        ROUND(AVG(value), 0) AS avg_value
+        year AS payroll_year, 
+        category_code AS industry_branch_code, 
+        ROUND(AVG(avg_wage), 0) AS avg_value
     FROM 
-        czechia_payroll
+        t_kristyna_zdrahalova_project_SQL_final_primary
     WHERE 
-        payroll_year BETWEEN 2006 AND 2018
-        AND industry_branch_code IS NOT NULL
+        year BETWEEN 2006 AND 2018
+        AND category_code IS NOT NULL
     GROUP BY 
-        payroll_year, 
-        industry_branch_code
+        year, 
+        category_code
 ),
 price_changes AS (
     SELECT 
@@ -310,15 +310,15 @@ price_changes AS (
 ),
 gdp_changes AS (
     SELECT 
-        YEAR,
+        year,
         ROUND(GDP, 2) AS GDP,
-        ROUND(LAG(GDP) OVER (ORDER BY YEAR), 2) AS Previous_GDP,
-        ROUND(((GDP - LAG(GDP) OVER (ORDER BY YEAR)) / LAG(GDP) OVER (ORDER BY YEAR)) * 100, 2) AS GDP_Change_Percentage
+        ROUND(LAG(GDP) OVER (ORDER BY year), 2) AS Previous_GDP,
+        ROUND(((GDP - LAG(GDP) OVER (ORDER BY year)) / LAG(GDP) OVER (ORDER BY year)) * 100, 2) AS GDP_Change_Percentage
     FROM 
         economies 
     WHERE 
         country = 'czech republic' 
-        AND YEAR BETWEEN 2006 AND 2018
+        AND year BETWEEN 2006 AND 2018
 )
 SELECT 
     p.year,
@@ -335,10 +335,11 @@ FROM
 JOIN 
     gdp_changes g
 ON 
-    p.year = g.YEAR
+    p.year = g.year
 ORDER BY 
     p.industry_branch_code, 
     p.year;
+
 
 Odpovědi na otázky:
 --1.	Rostou v průběhu let mzdy ve všech odvětvích, nebo v některých klesají?
@@ -349,8 +350,8 @@ Odpovědi na otázky:
 --Naopak v covidových letech značně rostly mzdy v následujících odvětvích: administrativní činnost, zdravotní a sociální péče, informační a komunikační činnost, doprava a skladování a distributoři energií.
 
 --2. Kolik je možné si koupit litrů mléka a kilogramů chleba za první a poslední srovnatelné období v dostupných datech cen a mezd?
---Rok 2006-1204ks bochníků chleba, 1376 litrů mléka
---Rok 2018-1265ks bochníků chleba, 1518 litrů mléka
+--Rok 2006-1184ks bochníků chleba, 1354 litrů mléka
+--Rok 2018-1245ks bochníků chleba, 1494 litrů mléka
 
 --3. Která kategorie potravin zdražuje nejpomaleji (je u ní nejnižší percentuální meziroční nárůst)?
 --Nejmenší meziroční nárůst cen- cukr krystal  -1,9%.
