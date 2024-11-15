@@ -225,48 +225,47 @@ LIMIT 1;
 --4. Existuje rok, ve kterém byl meziroční nárůst cen potravin výrazně vyšší než růst mezd (větší než 10 %)?
 WITH yearly_price_avg AS (
     SELECT 
-        year, 
-        AVG(avg_price) AS avg_price
+        price_year, 
+        AVG(price) AS avg_price
     FROM 
-        t_kristyna_zdrahalova_project_SQL_final_primary
+        t_kristyna_zdrahalova_project_sql_primary_final
     WHERE 
-        year BETWEEN 2006 AND 2018
+        price_year BETWEEN 2006 AND 2018
     GROUP BY 
-        year
+        price_year
 ),
 yearly_wage_avg AS (
     SELECT 
-        year, 
-        AVG(avg_wage) AS avg_wage
+        payroll_year, 
+        AVG(salary) AS avg_salary
     FROM 
-        t_kristyna_zdrahalova_project_SQL_final_primary
+        t_kristyna_zdrahalova_project_sql_primary_final
     WHERE 
-        year BETWEEN 2006 AND 2018
+        payroll_year BETWEEN 2006 AND 2018
     GROUP BY 
-        year
+        payroll_year
 ),
 price_wage_growth AS (
     SELECT 
-        p.year,
-        p.avg_price,
-        w.avg_wage,
-        LAG(p.avg_price) OVER (ORDER BY p.year) AS prev_avg_price,
-        LAG(w.avg_wage) OVER (ORDER BY w.year) AS prev_avg_wage
+        p.price_year AS year, 
+        p.avg_price, 
+        w.avg_salary, 
+        LAG(p.avg_price) OVER (ORDER BY p.price_year) AS prev_avg_price, 
+        LAG(w.avg_salary) OVER (ORDER BY w.payroll_year) AS prev_avg_salary
     FROM 
         yearly_price_avg p
     JOIN 
-        yearly_wage_avg w ON p.year = w.year
+        yearly_wage_avg w ON p.price_year = w.payroll_year
 )
 SELECT 
-    year,
-    ROUND(((avg_price - prev_avg_price) / prev_avg_price) * 100, 2) AS price_growth,
-    ROUND(((avg_wage - prev_avg_wage) / prev_avg_wage) * 100, 2) AS wage_growth
+    year, 
+    ROUND(((avg_price - prev_avg_price) / prev_avg_price) * 100, 2) AS price_growth, 
+    ROUND(((avg_salary - prev_avg_salary) / prev_avg_salary) * 100, 2) AS salary_growth
 FROM 
     price_wage_growth
 WHERE 
     prev_avg_price IS NOT NULL 
-    AND prev_avg_wage IS NOT NULL
-    AND ((avg_price - prev_avg_price) / prev_avg_price) * 100 > ((avg_wage - prev_avg_wage) / prev_avg_wage) * 100 + 10
+    AND prev_avg_salary IS NOT NULL
 ORDER BY 
     year;
 
@@ -354,12 +353,11 @@ Odpovědi na otázky:
 --Rok 2018-1245ks bochníků chleba, 1494 litrů mléka
 
 --3. Která kategorie potravin zdražuje nejpomaleji (je u ní nejnižší percentuální meziroční nárůst)?
---Nejmenší meziroční nárůst cen- cukr krystal  -1,9%.
+--Nejmenší meziroční nárůst cen- cukr krystal.
 
 --4. Existuje rok, ve kterém byl meziroční nárůst cen potravin výrazně vyšší než růst mezd (větší než 10 %)?
---Z dat dat vyplývá, že tuto podmínku splňovaly roky 2003 a 2017.
---2013	 ceny +5.55, mzdy -5.95 
---2017	ceny + 9.98, mzdy -1.26 
+--Z dat dat vyplývá, že tuto podmínku nesplňoval žádný rok.
+
 
 --5. Má výška HDP vliv na změny ve mzdách a cenách potravin? Neboli, pokud HDP vzroste výrazněji v jednom roce, projeví se to na cenách potravin či mzdách ve stejném nebo následujícím roce výraznějším růstem?
 --Hypotéza říká, že by měla bát korelace mezi růstem/poklesem HDP a cenami potravin/výší mezd. 
